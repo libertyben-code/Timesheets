@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -43,7 +42,7 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     # Allocate hours day by day
     for jour in jours_mois:
         if jour.weekday() >= 5 or jour in jours_feries:
-            df_repartition[jour] = ""
+            df_repartition[jour] = np.nan  # <-- FIX: use np.nan instead of ""
             continue
 
         # Calculate max allocatable for each contract (cannot exceed remaining)
