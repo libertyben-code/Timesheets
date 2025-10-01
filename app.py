@@ -29,39 +29,56 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     nb_jours_ouvres = len(jours_ouvres)
     HEURES_TOTALES = nb_jours_ouvres * heures_par_jour
 
-    # Calculate target hours per contract for the month
+    # Target monthly hours per contract
     heures_cibles = {code: round(HEURES_TOTALES * pct / 100, 2) for code, pct in contrats.items()}
+    contrats_list = list(contrats.keys())
 
-    # Initialize repartition DataFrame
-    df_repartition = pd.DataFrame(index=contrats.keys(), columns=jours_mois, dtype=float)
+    # Initialize DataFrame
+    df_repartition = pd.DataFrame(index=contrats_list, columns=jours_mois, dtype=float)
     df_repartition[:] = 0.0
 
-    # For each contract, randomly distribute its target hours over the working days
-    rng = np.random.default_rng(seed=42)
-    for code, heures_total in heures_cibles.items():
-        # Generate random splits that sum to heures_total
-        splits = rng.dirichlet(np.ones(nb_jours_ouvres)) * heures_total
-        splits = np.round(splits * 2) / 2  # round to nearest 0.5
-        # Adjust for rounding errors
-        diff = heures_total - splits.sum()
-        splits[0] += diff  # fix the first day
-        for i, jour in enumerate(jours_ouvres):
-            df_repartition.loc[code, jour] = splits[i]
+    # Remaining hours per contract
+    heures_restantes = heures_cibles.copy()
+
+    # Allocate hours day by day
+    for jour in jours_mois:
+        if jour.weekday() >= 5 or jour in jours_feries:
+            df_repartition[jour] = ""
+            continue
+
+        # Calculate max allocatable for each contract (cannot exceed remaining)
+        max_alloc = [min(heures_restantes[code], heures_par_jour) for code in contrats_list]
+
+        # Use random splits that sum to heures_par_jour, but do not exceed max_alloc
+        rng = np.random.default_rng()
+        while True:
+            # Generate random proportions
+            props = rng.dirichlet(np.ones(len(contrats_list)))
+            alloc = np.minimum(np.round(props * heures_par_jour * 2) / 2, max_alloc)
+            # Adjust if sum is not heures_par_jour due to min/max
+            diff = heures_par_jour - alloc.sum()
+            if abs(diff) < 0.01:
+                break
+            # Try to adjust the largest contract
+            idx = np.argmax(max_alloc)
+            if alloc[idx] + diff <= max_alloc[idx] and alloc[idx] + diff >= 0:
+                alloc[idx] += diff
+                break
+
+        # Assign and update remaining
+        for idx, code in enumerate(contrats_list):
+            df_repartition.loc[code, jour] = alloc[idx]
+            heures_restantes[code] -= alloc[idx]
 
     df_repartition.loc["Total/jour"] = df_repartition.sum(axis=0)
     df_repartition["Total contrat"] = df_repartition.sum(axis=1)
-
-    # Vider les week-ends et jours fériés
-    for d in jours_mois:
-        if d.weekday() >= 5 or d in jours_feries:
-            df_repartition[d] = ""
 
     # Création Excel en mémoire
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_contrats = pd.DataFrame({
-            "Code financement": list(contrats.keys()),
-            "Pourcentage": list(contrats.values())
+            "Code financement": contrats_list,
+            "Pourcentage": [contrats[code] for code in contrats_list]
         })
         df_contrats.to_excel(writer, sheet_name="Répartition", index=False, startrow=1)
         df_repartition.to_excel(writer, sheet_name="Planning", index=True, startrow=1)
