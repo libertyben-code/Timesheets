@@ -29,23 +29,24 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     nb_jours_ouvres = len(jours_ouvres)
     HEURES_TOTALES = nb_jours_ouvres * heures_par_jour
 
+    # Calculate target hours per contract for the month
+    heures_cibles = {code: round(HEURES_TOTALES * pct / 100, 2) for code, pct in contrats.items()}
+
+    # Initialize repartition DataFrame
     df_repartition = pd.DataFrame(index=contrats.keys(), columns=jours_mois, dtype=float)
     df_repartition[:] = 0.0
 
+    # For each contract, randomly distribute its target hours over the working days
     rng = np.random.default_rng(seed=42)
-
-    for jour in jours_ouvres:
-        heures_restantes = heures_par_jour
-        contrats_list = list(contrats.keys())
-
-        for contrat in contrats_list[:-1]:
-            if heures_restantes > 0:
-                max_possible = heures_restantes - 0.5 * (len(contrats_list) - contrats_list.index(contrat) - 1)
-                h = rng.choice([x * 0.5 for x in range(int(max_possible * 2) + 1)]) if max_possible >= 0.5 else 0.0
-                df_repartition.loc[contrat, jour] = h
-                heures_restantes -= h
-
-        df_repartition.loc[contrats_list[-1], jour] = round(heures_restantes, 1)
+    for code, heures_total in heures_cibles.items():
+        # Generate random splits that sum to heures_total
+        splits = rng.dirichlet(np.ones(nb_jours_ouvres)) * heures_total
+        splits = np.round(splits * 2) / 2  # round to nearest 0.5
+        # Adjust for rounding errors
+        diff = heures_total - splits.sum()
+        splits[0] += diff  # fix the first day
+        for i, jour in enumerate(jours_ouvres):
+            df_repartition.loc[code, jour] = splits[i]
 
     df_repartition.loc["Total/jour"] = df_repartition.sum(axis=0)
     df_repartition["Total contrat"] = df_repartition.sum(axis=1)
