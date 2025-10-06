@@ -113,6 +113,53 @@ if st.button("📄 Télécharger le modèle Excel"):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+# Upload multiple plannings
+st.subheader("Ou importer un fichier Excel pour plusieurs plannings")
+uploaded_file = st.file_uploader("Importer un fichier Excel", type=["xlsx"])
+
+if uploaded_file:
+    df_upload = pd.read_excel(uploaded_file)
+    # Expected columns: 'Année', 'Mois', 'Heures par jour', 'Jours fériés', 'Contrats'
+    # Contrats column: "code1:pourcentage1,code2:pourcentage2,..."
+    st.write("Aperçu du fichier importé :")
+    st.dataframe(df_upload)
+
+    if st.button("✅ Générer tous les plannings du fichier"):
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zipf:
+            for idx, row in df_upload.iterrows():
+                try:
+                    annee = int(row["Année"])
+                    mois = int(row["Mois"])
+                    heures_par_jour = int(row["Heures par jour"])
+                    jours_feries = []
+                    if pd.notna(row.get("Jours fériés", None)):
+                        for d in str(row["Jours fériés"]).split(","):
+                            d = d.strip()
+                            if d:
+                                jours_feries.append(datetime.strptime(d, "%Y-%m-%d").date())
+                    contrats = {}
+                    for item in str(row["Contrats"]).split(","):
+                        code, pct = item.split(":")
+                        contrats[code.strip()] = float(pct.strip())
+                    if sum(contrats.values()) != 100:
+                        continue  # skip invalid rows
+                    excel_file = generer_excel(mois, annee, contrats, heures_par_jour, jours_feries)
+                    file_name = f"planning_{mois}_{annee}_{idx+1}.xlsx"
+                    zipf.writestr(file_name, excel_file.getvalue())
+                except Exception as e:
+                    st.warning(f"Ligne {idx+1} ignorée : {e}")
+
+        zip_buffer.seek(0)
+        st.success("Tous les plannings ont été générés !")
+        st.download_button(
+            label="📥 Télécharger le ZIP des plannings",
+            data=zip_buffer,
+            file_name="plannings.zip",
+            mime="application/zip"
+        )
+
+
 # Sélection du mois et année
 col1, col2 = st.columns(2)
 with col1:
@@ -160,51 +207,6 @@ if total_pct != 100:
     st.error(f"❌ Le total des pourcentages est {total_pct}%. Il doit être égal à 100%.")
     st.stop()
 
-# Upload multiple plannings
-st.subheader("Ou importer un fichier Excel pour plusieurs plannings")
-uploaded_file = st.file_uploader("Importer un fichier Excel", type=["xlsx"])
-
-if uploaded_file:
-    df_upload = pd.read_excel(uploaded_file)
-    # Expected columns: 'Année', 'Mois', 'Heures par jour', 'Jours fériés', 'Contrats'
-    # Contrats column: "code1:pourcentage1,code2:pourcentage2,..."
-    st.write("Aperçu du fichier importé :")
-    st.dataframe(df_upload)
-
-    if st.button("✅ Générer tous les plannings du fichier"):
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w") as zipf:
-            for idx, row in df_upload.iterrows():
-                try:
-                    annee = int(row["Année"])
-                    mois = int(row["Mois"])
-                    heures_par_jour = int(row["Heures par jour"])
-                    jours_feries = []
-                    if pd.notna(row.get("Jours fériés", None)):
-                        for d in str(row["Jours fériés"]).split(","):
-                            d = d.strip()
-                            if d:
-                                jours_feries.append(datetime.strptime(d, "%Y-%m-%d").date())
-                    contrats = {}
-                    for item in str(row["Contrats"]).split(","):
-                        code, pct = item.split(":")
-                        contrats[code.strip()] = float(pct.strip())
-                    if sum(contrats.values()) != 100:
-                        continue  # skip invalid rows
-                    excel_file = generer_excel(mois, annee, contrats, heures_par_jour, jours_feries)
-                    file_name = f"planning_{mois}_{annee}_{idx+1}.xlsx"
-                    zipf.writestr(file_name, excel_file.getvalue())
-                except Exception as e:
-                    st.warning(f"Ligne {idx+1} ignorée : {e}")
-
-        zip_buffer.seek(0)
-        st.success("Tous les plannings ont été générés !")
-        st.download_button(
-            label="📥 Télécharger le ZIP des plannings",
-            data=zip_buffer,
-            file_name="plannings.zip",
-            mime="application/zip"
-        )
 
 # Génération
 if st.button("✅ Générer le planning"):
