@@ -94,24 +94,23 @@ st.set_page_config(page_title="Générateur de Planning", layout="centered")
 
 st.title("📅 Générateur de planning d'heures")
 
-if st.button("📄 Télécharger le modèle Excel"):
-    template = BytesIO()
-    df_template = pd.DataFrame({
-        "Année": [2025],
-        "Mois": [10],
-        "Heures par jour": [8],
-        "Jours fériés": ["2025-10-01,2025-10-15"],
-        "Contrats": ["FH71_01:50,FH71_02:50"]
-    })
-    with pd.ExcelWriter(template, engine="openpyxl") as writer:
-        df_template.to_excel(writer, index=False)
-    template.seek(0)
-    st.download_button(
-        label="📥 Télécharger le modèle Excel",
-        data=template,
-        file_name="modele_plannings.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+template = BytesIO()
+df_template = pd.DataFrame({
+    "Année": [2025],
+    "Mois": [10],
+    "Heures par jour": [8],
+    "Jours fériés": ["2025-10-01,2025-10-15"],
+    "Contrats": ["FH71_01:50,FH71_02:50"]
+})
+with pd.ExcelWriter(template, engine="openpyxl") as writer:
+    df_template.to_excel(writer, index=False)
+template.seek(0)
+st.download_button(
+    label="📥 Télécharger le modèle Excel",
+    data=template,
+    file_name="modele_plannings.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 # Upload multiple plannings
 st.subheader("Ou importer un fichier Excel pour plusieurs plannings")
