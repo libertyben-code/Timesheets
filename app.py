@@ -113,8 +113,7 @@ st.download_button(
 )
 
 # Upload multiple plannings
-st.subheader("Ou importer un fichier Excel pour plusieurs plannings")
-uploaded_file = st.file_uploader("Importer un fichier Excel", type=["xlsx"])
+uploaded_file = st.file_uploader("Importer un fichier Excel pour génerer plusieurs plannings", type=["xlsx"])
 
 if uploaded_file:
     df_upload = pd.read_excel(uploaded_file)
