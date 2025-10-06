@@ -160,6 +160,8 @@ if uploaded_file:
 
 
 # Sélection du mois et année
+
+st.subheader("Générer un planning unique")
 col1, col2 = st.columns(2)
 with col1:
     mois_nom = st.selectbox("Mois", list(calendar.month_name)[1:], index=9)
