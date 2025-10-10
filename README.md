@@ -68,4 +68,4 @@ La fonctionnalité de **batch upload** permet de générer plusieurs plannings/t
 
 ## Author
 
-Vibe coded by Ben LIBERTY in Visual Studio Code use GPT-4.1
+Vibe coded by Ben LIBERTY in Visual Studio Code using GPT-4.1
