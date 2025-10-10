@@ -184,6 +184,7 @@ if uploaded_file:
         for year, group in grouped:
             output = BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                sheet_written = False  # Track if any sheet is written
                 for idx, row in group.iterrows():
                     try:
                         mois = int(row["Mois"] if is_fr else row["Month"] if is_en else row["Mes"])
@@ -201,22 +202,37 @@ if uploaded_file:
                         donor_col = "Donor"
                         contrats_items = str(row[contrats_col]).split(",")
                         donor_items = str(row.get(donor_col, "")).split(",")
+                        if len(donor_items) != len(contrats_items):
+                            st.warning(
+                                f"Ligne {idx+1} ignorée : nombre de donors ({len(donor_items)}) différent du nombre de contrats ({len(contrats_items)})" if is_fr else
+                                f"Row {idx+1} skipped: number of donors ({len(donor_items)}) does not match number of contracts ({len(contrats_items)})" if is_en else
+                                f"Fila {idx+1} omitida: número de donantes ({len(donor_items)}) diferente al número de contratos ({len(contrats_items)})"
+                            )
+                            continue
                         for i, item in enumerate(contrats_items):
                             code, pct = item.split(":")
                             contrats[code.strip()] = float(pct.strip())
-                            donors[code.strip()] = donor_items[i].strip() if i < len(donor_items) else ""
+                            donors[code.strip()] = donor_items[i].strip()
                         if sum(contrats.values()) != 100:
+                            st.warning(
+                                f"Ligne {idx+1} ignorée : la somme des pourcentages de contrats n'est pas 100" if is_fr else
+                                f"Row {idx+1} skipped: contract percentages do not sum to 100" if is_en else
+                                f"Fila {idx+1} omitida: los porcentajes de contratos no suman 100"
+                            )
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
-                        # Do NOT remove the first line; keep all rows
                         planning_df = pd.read_excel(excel_file, sheet_name="Planning")
                         planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
+                        sheet_written = True
                     except Exception as e:
                         st.warning(
                             f"Ligne {idx+1} ignorée : {e}" if is_fr else
                             f"Row {idx+1} skipped: {e}" if is_en else
                             f"Fila {idx+1} omitida: {e}"
                         )
+                if not sheet_written:
+                    # Add a dummy sheet to avoid error
+                    pd.DataFrame({"Info": ["No valid rows"]}).to_excel(writer, sheet_name="Info", index=False)
             output.seek(0)
             download_files.append((year, output))
 
