@@ -187,187 +187,76 @@ if uploaded_file:
         "✅ Generate all timesheets from file" if is_en else
         "✅ Generar todos los horarios del archivo"
     ):
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w") as zipf:
-            for idx, row in df_upload.iterrows():
-                try:
-                    annee = int(row["Année"] if is_fr else row["Year"] if is_en else row["Año"])
-                    mois = int(row["Mois"] if is_fr else row["Month"] if is_en else row["Mes"])
-                    heures_par_jour = int(row["Heures par jour"] if is_fr else row["Hours per day"] if is_en else row["Horas por día"])
-                    jours_feries = []
-                    jours_feries_col = "Jours fériés" if is_fr else "Holidays" if is_en else "Días festivos"
-                    if pd.notna(row.get(jours_feries_col, None)):
-                        for d in str(row[jours_feries_col]).split(","):
-                            d = d.strip()
-                            if d:
-                                jours_feries.append(datetime.strptime(d, "%Y-%m-%d").date())
-                    contrats = {}
-                    contrats_col = "Contrats" if is_fr else "Contracts" if is_en else "Contratos"
-                    for item in str(row[contrats_col]).split(","):
-                        code, pct = item.split(":")
-                        contrats[code.strip()] = float(pct.strip())
-                    if sum(contrats.values()) != 100:
-                        continue  # skip invalid rows
-                    excel_file = generer_excel(mois, annee, contrats, heures_par_jour, jours_feries)
-                    file_name = (
-                        f"planning_{mois}_{annee}_{idx+1}.xlsx" if is_fr else
-                        f"timesheet_{mois}_{annee}_{idx+1}.xlsx" if is_en else
-                        f"horario_{mois}_{annee}_{idx+1}.xlsx"
-                    )
-                    zipf.writestr(file_name, excel_file.getvalue())
-                except Exception as e:
-                    st.warning(
-                        f"Ligne {idx+1} ignorée : {e}" if is_fr else
-                        f"Row {idx+1} skipped: {e}" if is_en else
-                        f"Fila {idx+1} omitida: {e}"
-                    )
+        # Group by year
+        year_col = "Année" if is_fr else "Year" if is_en else "Año"
+        grouped = df_upload.groupby(year_col)
+        download_files = []
 
-        zip_buffer.seek(0)
+        for year, group in grouped:
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                for idx, row in group.iterrows():
+                    try:
+                        mois = int(row["Mois"] if is_fr else row["Month"] if is_en else row["Mes"])
+                        heures_par_jour = int(row["Heures par jour"] if is_fr else row["Hours per day"] if is_en else row["Horas por día"])
+                        jours_feries = []
+                        jours_feries_col = "Jours fériés" if is_fr else "Holidays" if is_en else "Días festivos"
+                        if pd.notna(row.get(jours_feries_col, None)):
+                            for d in str(row[jours_feries_col]).split(","):
+                                d = d.strip()
+                                if d:
+                                    jours_feries.append(datetime.strptime(d, "%Y-%m-%d").date())
+                        contrats = {}
+                        contrats_col = "Contrats" if is_fr else "Contracts" if is_en else "Contratos"
+                        for item in str(row[contrats_col]).split(","):
+                            code, pct = item.split(":")
+                            contrats[code.strip()] = float(pct.strip())
+                        if sum(contrats.values()) != 100:
+                            continue  # skip invalid rows
+                        excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries)
+                        # Read planning from BytesIO and write to the main Excel file as a sheet
+                        planning_df = pd.read_excel(excel_file, sheet_name="Planning", index_col=0)
+                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}")
+                    except Exception as e:
+                        st.warning(
+                            f"Ligne {idx+1} ignorée : {e}" if is_fr else
+                            f"Row {idx+1} skipped: {e}" if is_en else
+                            f"Fila {idx+1} omitida: {e}"
+                        )
+            output.seek(0)
+            download_files.append((year, output))
+
         st.success(
             "Tous les plannings ont été générés !" if is_fr else
             "All timesheets have been generated!" if is_en else
             "¡Todos los horarios han sido generados!"
         )
+
+        # Create ZIP archive in memory
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for year, fileobj in download_files:
+                filename = (
+                    f"plannings_{year}.xlsx" if is_fr else
+                    f"timesheets_{year}.xlsx" if is_en else
+                    f"horarios_{year}.xlsx"
+                )
+                zipf.writestr(filename, fileobj.getvalue())
+        zip_buffer.seek(0)
+
         st.download_button(
             label=(
-                "📥 Télécharger le ZIP des plannings" if is_fr else
-                "📥 Download ZIP of timesheets" if is_en else
-                "📥 Descargar ZIP de horarios"
+                "📥 Télécharger tous les plannings (ZIP)" if is_fr else
+                "📥 Download all timesheets (ZIP)" if is_en else
+                "📥 Descargar todos los horarios (ZIP)"
             ),
             data=zip_buffer,
             file_name=(
-                "plannings.zip" if is_fr else
-                "timesheets.zip" if is_en else
-                "horarios.zip"
+                "plannings_annuels.zip" if is_fr else
+                "yearly_timesheets.zip" if is_en else
+                "horarios_anuales.zip"
             ),
             mime="application/zip"
         )
-
-# Sélection du mois et année
-
-st.subheader(
-    "Générer un planning unique" if is_fr else
-    "Generate a single timesheet" if is_en else
-    "Generar un horario único"
-)
-col1, col2 = st.columns(2)
-with col1:
-    mois_nom = st.selectbox(
-        "Mois" if is_fr else "Month" if is_en else "Mes",
-        list(calendar.month_name)[1:], index=9
-    )
-with col2:
-    annee = st.number_input(
-        "Année" if is_fr else "Year" if is_en else "Año",
-        min_value=2020, max_value=2100, value=2025
-    )
-
-mois = list(calendar.month_name).index(mois_nom)
-
-# Heures par jour
-heures_par_jour = st.slider(
-    "Heures par jour ouvré" if is_fr else
-    "Hours per working day" if is_en else
-    "Horas por día laboral",
-    1, 12, 8
-)
-
-# Entrée des jours fériés
-st.subheader(
-    "Jours fériés" if is_fr else
-    "Holidays" if is_en else
-    "Días festivos"
-)
-jours_feries_input = st.text_area(
-    "Entrez les jours fériés du mois (format AAAA-MM-JJ), un par ligne, ex:\n2025-10-01\n2025-10-15"
-    if is_fr else
-    "Enter holidays for the month (format YYYY-MM-DD), one per line, e.g.:\n2025-10-01\n2025-10-15"
-    if is_en else
-    "Ingrese los días festivos del mes (formato AAAA-MM-DD), uno por línea, ej.:\n2025-10-01\n2025-10-15",
-    height=100
-)
-
-jours_feries = []
-for ligne in jours_feries_input.split('\n'):
-    ligne = ligne.strip()
-    if ligne:
-        try:
-            dt = datetime.strptime(ligne, "%Y-%m-%d").date()
-            jours_feries.append(dt)
-        except Exception:
-            st.error(
-                f"Format de date invalide : {ligne}" if is_fr else
-                f"Invalid date format: {ligne}" if is_en else
-                f"Formato de fecha inválido: {ligne}"
-            )
-
-# Tableau des contrats
-st.subheader(
-    "Répartition par contrat" if is_fr else
-    "Contract allocation" if is_en else
-    "Distribución por contrato"
-)
-nb_contrats = st.number_input(
-    "Nombre de contrats" if is_fr else
-    "Number of contracts" if is_en else
-    "Número de contratos",
-    min_value=1, max_value=10, value=3
-)
-contrats = {}
-
-for i in range(nb_contrats):
-    cols = st.columns([2, 1])
-    code = cols[0].text_input(
-        f"Code financement {i+1}" if is_fr else
-        f"Funding code {i+1}" if is_en else
-        f"Código de financiación {i+1}",
-        value=f"FH71_0{i+1}"
-    )
-    pct = cols[1].number_input(
-        f"%" if is_fr else "%" if is_en else "%",
-        min_value=0.0, max_value=100.0,
-        value=round(100/nb_contrats, 2), step=1.0, key=f"pct_{i}"
-    )
-    if code:
-        contrats[code] = pct
-
-# Vérification total
-total_pct = sum(contrats.values())
-if total_pct != 100:
-    st.error(
-        f"❌ Le total des pourcentages est {total_pct}%. Il doit être égal à 100%." if is_fr else
-        f"❌ Total percentage is {total_pct}%. It must be 100%." if is_en else
-        f"❌ El porcentaje total es {total_pct}%. Debe ser igual a 100%."
-    )
-    st.stop()
-
-# Génération
-if st.button(
-    "✅ Générer le planning" if is_fr else
-    "✅ Generate timesheet" if is_en else
-    "✅ Generar horario"
-):
-    excel_file = generer_excel(mois, annee, contrats, heures_par_jour, jours_feries)
-    file_name = (
-        f"planning_{mois_nom}_{annee}.xlsx" if is_fr else
-        f"timesheet_{mois_nom}_{annee}.xlsx" if is_en else
-        f"horario_{mois_nom}_{annee}.xlsx"
-    )
-
-    st.success(
-        "Fichier Excel généré avec succès !" if is_fr else
-        "Excel file generated successfully!" if is_en else
-        "¡Archivo Excel generado exitosamente!"
-    )
-    st.download_button(
-        label=(
-            "📥 Télécharger le fichier Excel" if is_fr else
-            "📥 Download Excel file" if is_en else
-            "📥 Descargar archivo Excel"
-        ),
-        data=excel_file,
-        file_name=file_name,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
 
 
