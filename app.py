@@ -146,6 +146,27 @@ df_template = pd.DataFrame({
 with pd.ExcelWriter(template, engine="openpyxl") as writer:
     df_template.to_excel(writer, index=False)
 template.seek(0)
+
+st.markdown(
+    (
+        "ℹ️ [Comment utiliser le modèle Excel ?](#)<br>"
+        "Cliquez sur le bouton ci-dessous pour télécharger un modèle Excel.<br>"
+        "Remplissez chaque ligne avec vos paramètres (année, mois, heures par jour, jours fériés, contrats, donneurs).<br>"
+        "Ensuite, importez ce fichier pour générer automatiquement tous vos plannings."
+        if is_fr else
+        "ℹ️ [How to use the Excel template?](#)<br>"
+        "Click the button below to download an Excel template.<br>"
+        "Fill each row with your parameters (year, month, hours per day, holidays, contracts, donors).<br>"
+        "Then, upload this file to automatically generate all your timesheets."
+        if is_en else
+        "ℹ️ [¿Cómo usar la plantilla de Excel?](#)<br>"
+        "Haga clic en el botón de atras para descargar una plantilla de Excel.<br>"
+        "Complete cada fila con sus parámetros (año, mes, horas por día, días festivos, contratos, donantes).<br>"
+        "Luego, suba este archivo para generar automáticamente todos sus horarios."
+    ),
+    unsafe_allow_html=True
+)
+
 st.download_button(
     label=(
         "📥 Télécharger le modèle Excel" if is_fr else
@@ -161,31 +182,12 @@ st.download_button(
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
 
-st.markdown(
-    (
-        "ℹ️ [Comment utiliser le modèle Excel ?](#)<br>"
-        "Cliquez sur le bouton ci-dessus pour télécharger un modèle Excel.<br>"
-        "Remplissez chaque ligne avec vos paramètres (année, mois, heures par jour, jours fériés, contrats, donneurs).<br>"
-        "Ensuite, importez ce fichier pour générer automatiquement tous vos plannings."
-        if is_fr else
-        "ℹ️ [How to use the Excel template?](#)<br>"
-        "Click the button above to download an Excel template.<br>"
-        "Fill each row with your parameters (year, month, hours per day, holidays, contracts, donors).<br>"
-        "Then, upload this file to automatically generate all your timesheets."
-        if is_en else
-        "ℹ️ [¿Cómo usar la plantilla de Excel?](#)<br>"
-        "Haga clic en el botón de arriba para descargar una plantilla de Excel.<br>"
-        "Complete cada fila con sus parámetros (año, mes, horas por día, días festivos, contratos, donantes).<br>"
-        "Luego, suba este archivo para generar automáticamente todos sus horarios."
-    ),
-    unsafe_allow_html=True
-)
 
 # Upload multiple plannings
 st.subheader(
-    "Importer un fichier Excel pour plusieurs plannings" if is_fr else
-    "Upload an Excel file for multiple timesheets" if is_en else
-    "Subir un archivo Excel para varios horarios"
+    "Importer un fichier Excel pour générer les plannings annuels" if is_fr else
+    "Upload an Excel file to generate annual timesheets" if is_en else
+    "Subir un archivo Excel para generar los horarios anuales"
 )
 uploaded_file = st.file_uploader("", type=["xlsx"])
 
