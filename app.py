@@ -68,7 +68,6 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     df_repartition.insert(0, "Financing Code", financing_values)
     df_repartition.insert(0, "Donor", donor_values)
 
-    # Remove first line in each planning sheet by skipping the first row when writing
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df_repartition.to_excel(writer, sheet_name="Planning", index=False)
@@ -209,9 +208,8 @@ if uploaded_file:
                         if sum(contrats.values()) != 100:
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
-                        # Read planning and skip first row (header already present)
+                        # Do NOT remove the first line; keep all rows
                         planning_df = pd.read_excel(excel_file, sheet_name="Planning")
-                        planning_df = planning_df.iloc[1:]  # Remove first line
                         planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
                     except Exception as e:
                         st.warning(
