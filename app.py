@@ -23,65 +23,54 @@ def get_jours_ouvres(mois, annee, jours_feries):
     jours_ouvres = [d for d in all_days if d.weekday() < 5 and d not in jours_feries]
     return jours_ouvres
 
-def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jour, jours_feries):
+def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jour, jours_feries, donors=None):
     jours_mois = get_all_days(mois_selectionne, annee_selectionnee)
     jours_ouvres = get_jours_ouvres(mois_selectionne, annee_selectionnee, jours_feries)
     nb_jours_ouvres = len(jours_ouvres)
     HEURES_TOTALES = nb_jours_ouvres * heures_par_jour
 
-    # Target monthly hours per contract
     heures_cibles = {code: round(HEURES_TOTALES * pct / 100, 2) for code, pct in contrats.items()}
     contrats_list = list(contrats.keys())
 
-    # Initialize DataFrame
-    df_repartition = pd.DataFrame(index=contrats_list, columns=jours_mois, dtype=float)
-    df_repartition[:] = 0.0
+    # Format dates as strings (YYYY-MM-DD)
+    jours_mois_str = [d.strftime("%Y-%m-%d") for d in jours_mois]
 
-    # Remaining hours per contract
+    df_repartition = pd.DataFrame(index=contrats_list, columns=jours_mois_str, dtype=float)
+    df_repartition[:] = 0.0
     heures_restantes = heures_cibles.copy()
 
-    # Allocate hours day by day
-    for jour in jours_mois:
+    for jour, jour_str in zip(jours_mois, jours_mois_str):
         if jour.weekday() >= 5 or jour in jours_feries:
-            df_repartition[jour] = np.nan  # <-- FIX: use np.nan instead of ""
+            df_repartition[jour_str] = np.nan
             continue
-
-        # Calculate max allocatable for each contract (cannot exceed remaining)
         max_alloc = [min(heures_restantes[code], heures_par_jour) for code in contrats_list]
-
-        # Use random splits that sum to heures_par_jour, but do not exceed max_alloc
         rng = np.random.default_rng()
         while True:
-            # Generate random proportions
             props = rng.dirichlet(np.ones(len(contrats_list)))
             alloc = np.minimum(np.round(props * heures_par_jour * 2) / 2, max_alloc)
-            # Adjust if sum is not heures_par_jour due to min/max
             diff = heures_par_jour - alloc.sum()
             if abs(diff) < 0.01:
                 break
-            # Try to adjust the largest contract
             idx = np.argmax(max_alloc)
             if alloc[idx] + diff <= max_alloc[idx] and alloc[idx] + diff >= 0:
                 alloc[idx] += diff
                 break
-
-        # Assign and update remaining
         for idx, code in enumerate(contrats_list):
-            df_repartition.loc[code, jour] = alloc[idx]
+            df_repartition.loc[code, jour_str] = alloc[idx]
             heures_restantes[code] -= alloc[idx]
 
     df_repartition.loc["Total/jour"] = df_repartition.sum(axis=0)
     df_repartition["Total contrat"] = df_repartition.sum(axis=1)
 
-    # Création Excel en mémoire
+    # Add Donor and Financing columns to the left
+    donor_values = [donors.get(code, "") if donors else "" for code in df_repartition.index]
+    financing_values = list(df_repartition.index)
+    df_repartition.insert(0, "Financing Code", financing_values)
+    df_repartition.insert(0, "Donor", donor_values)
+
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df_contrats = pd.DataFrame({
-            "Code financement": contrats_list,
-            "Pourcentage": [contrats[code] for code in contrats_list]
-        })
-        df_contrats.to_excel(writer, sheet_name="Répartition", index=False, startrow=1)
-        df_repartition.to_excel(writer, sheet_name="Planning", index=True, startrow=1)
+        df_repartition.to_excel(writer, sheet_name="Planning", index=False)
 
     output.seek(0)
     return output
@@ -145,7 +134,8 @@ df_template = pd.DataFrame({
     "Mois" if is_fr else "Month" if is_en else "Mes": [10],
     "Heures par jour" if is_fr else "Hours per day" if is_en else "Horas por día": [8],
     "Jours fériés" if is_fr else "Holidays" if is_en else "Días festivos": ["2025-10-01,2025-10-15"],
-    "Contrats" if is_fr else "Contracts" if is_en else "Contratos": ["FH71_01:50,FH71_02:50"]
+    "Contrats" if is_fr else "Contracts" if is_en else "Contratos": ["FH71_01:50,FH71_02:50"],
+    "Donor": ["Donor1,Donor2"]
 })
 with pd.ExcelWriter(template, engine="openpyxl") as writer:
     df_template.to_excel(writer, index=False)
@@ -187,7 +177,6 @@ if uploaded_file:
         "✅ Generate all timesheets from file" if is_en else
         "✅ Generar todos los horarios del archivo"
     ):
-        # Group by year
         year_col = "Année" if is_fr else "Year" if is_en else "Año"
         grouped = df_upload.groupby(year_col)
         download_files = []
@@ -207,16 +196,21 @@ if uploaded_file:
                                 if d:
                                     jours_feries.append(datetime.strptime(d, "%Y-%m-%d").date())
                         contrats = {}
+                        donors = {}
                         contrats_col = "Contrats" if is_fr else "Contracts" if is_en else "Contratos"
-                        for item in str(row[contrats_col]).split(","):
+                        donor_col = "Donor"
+                        contrats_items = str(row[contrats_col]).split(",")
+                        donor_items = str(row.get(donor_col, "")).split(",")
+                        for i, item in enumerate(contrats_items):
                             code, pct = item.split(":")
                             contrats[code.strip()] = float(pct.strip())
+                            donors[code.strip()] = donor_items[i].strip() if i < len(donor_items) else ""
                         if sum(contrats.values()) != 100:
-                            continue  # skip invalid rows
-                        excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries)
-                        # Read planning from BytesIO and write to the main Excel file as a sheet
-                        planning_df = pd.read_excel(excel_file, sheet_name="Planning", index_col=0)
-                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}")
+                            continue
+                        excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
+                        # Do NOT remove the first line; keep all rows
+                        planning_df = pd.read_excel(excel_file, sheet_name="Planning")
+                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
                     except Exception as e:
                         st.warning(
                             f"Ligne {idx+1} ignorée : {e}" if is_fr else
@@ -232,7 +226,6 @@ if uploaded_file:
             "¡Todos los horarios han sido generados!"
         )
 
-        # Create ZIP archive in memory
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
             for year, fileobj in download_files:
