@@ -59,14 +59,15 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     df_repartition.loc["Total/jour"] = df_repartition.sum(axis=0)
     df_repartition["Total contrat"] = df_repartition.sum(axis=1)
 
-    # Add Donor column to the planning sheet
+    # Add Donor and Financing columns to the left
     donor_values = [donors.get(code, "") if donors else "" for code in df_repartition.index]
+    financing_values = list(df_repartition.index)
+    df_repartition.insert(0, "Financing Code", financing_values)
     df_repartition.insert(0, "Donor", donor_values)
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        # Only the planning sheet is needed, with Donor column
-        df_repartition.to_excel(writer, sheet_name="Planning", index=True, startrow=1)
+        df_repartition.to_excel(writer, sheet_name="Planning", index=False, startrow=1)
 
     output.seek(0)
     return output
