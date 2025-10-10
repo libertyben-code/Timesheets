@@ -163,19 +163,19 @@ st.download_button(
 
 st.markdown(
     (
-        "ℹ️ [Comment utiliser le modèle Excel ?](#)\n"
-        "Cliquez sur le bouton ci-dessus pour télécharger un modèle Excel. "
-        "Remplissez chaque ligne avec vos paramètres (année, mois, heures par jour, jours fériés, contrats, donneurs). "
+        "ℹ️ [Comment utiliser le modèle Excel ?](#)  "
+        "Cliquez sur le bouton ci-dessus pour télécharger un modèle Excel.  "
+        "Remplissez chaque ligne avec vos paramètres (année, mois, heures par jour, jours fériés, contrats, donneurs).  "
         "Ensuite, importez ce fichier pour générer automatiquement tous vos plannings."
         if is_fr else
-        "ℹ️ [How to use the Excel template?](#)\n"
-        "Click the button above to download an Excel template. "
-        "Fill each row with your parameters (year, month, hours per day, holidays, contracts, donors). "
+        "ℹ️ [How to use the Excel template?](#)  "
+        "Click the button above to download an Excel template.  "
+        "Fill each row with your parameters (year, month, hours per day, holidays, contracts, donors).  "
         "Then, upload this file to automatically generate all your timesheets."
         if is_en else
-        "ℹ️ [¿Cómo usar la plantilla de Excel?](#)\n"
-        "Haga clic en el botón de arriba para descargar una plantilla de Excel. "
-        "Complete cada fila con sus parámetros (año, mes, horas por día, días festivos, contratos, donantes). "
+        "ℹ️ [¿Cómo usar la plantilla de Excel?](#)  "
+        "Haga clic en el botón de arriba para descargar una plantilla de Excel.  "
+        "Complete cada fila con sus parámetros (año, mes, horas por día, días festivos, contratos, donantes).  "
         "Luego, suba este archivo para generar automáticamente todos sus horarios."
     )
 )
