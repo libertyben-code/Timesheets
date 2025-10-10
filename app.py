@@ -231,20 +231,32 @@ if uploaded_file:
             "All timesheets have been generated!" if is_en else
             "¡Todos los horarios han sido generados!"
         )
-        for year, fileobj in download_files:
-            st.download_button(
-                label=(
-                    f"📥 Télécharger le fichier Excel {year}" if is_fr else
-                    f"📥 Download Excel file {year}" if is_en else
-                    f"📥 Descargar archivo Excel {year}"
-                ),
-                data=fileobj,
-                file_name=(
+
+        # Create ZIP archive in memory
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for year, fileobj in download_files:
+                filename = (
                     f"plannings_{year}.xlsx" if is_fr else
                     f"timesheets_{year}.xlsx" if is_en else
                     f"horarios_{year}.xlsx"
-                ),
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+                )
+                zipf.writestr(filename, fileobj.getvalue())
+        zip_buffer.seek(0)
+
+        st.download_button(
+            label=(
+                "📥 Télécharger tous les plannings (ZIP)" if is_fr else
+                "📥 Download all timesheets (ZIP)" if is_en else
+                "📥 Descargar todos los horarios (ZIP)"
+            ),
+            data=zip_buffer,
+            file_name=(
+                "plannings_annuels.zip" if is_fr else
+                "yearly_timesheets.zip" if is_en else
+                "horarios_anuales.zip"
+            ),
+            mime="application/zip"
+        )
 
 
