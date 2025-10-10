@@ -32,13 +32,16 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     heures_cibles = {code: round(HEURES_TOTALES * pct / 100, 2) for code, pct in contrats.items()}
     contrats_list = list(contrats.keys())
 
-    df_repartition = pd.DataFrame(index=contrats_list, columns=jours_mois, dtype=float)
+    # Format dates as strings (YYYY-MM-DD)
+    jours_mois_str = [d.strftime("%Y-%m-%d") for d in jours_mois]
+
+    df_repartition = pd.DataFrame(index=contrats_list, columns=jours_mois_str, dtype=float)
     df_repartition[:] = 0.0
     heures_restantes = heures_cibles.copy()
 
-    for jour in jours_mois:
+    for jour, jour_str in zip(jours_mois, jours_mois_str):
         if jour.weekday() >= 5 or jour in jours_feries:
-            df_repartition[jour] = np.nan
+            df_repartition[jour_str] = np.nan
             continue
         max_alloc = [min(heures_restantes[code], heures_par_jour) for code in contrats_list]
         rng = np.random.default_rng()
@@ -53,7 +56,7 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
                 alloc[idx] += diff
                 break
         for idx, code in enumerate(contrats_list):
-            df_repartition.loc[code, jour] = alloc[idx]
+            df_repartition.loc[code, jour_str] = alloc[idx]
             heures_restantes[code] -= alloc[idx]
 
     df_repartition.loc["Total/jour"] = df_repartition.sum(axis=0)
@@ -65,9 +68,10 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     df_repartition.insert(0, "Financing Code", financing_values)
     df_repartition.insert(0, "Donor", donor_values)
 
+    # Remove first line in each planning sheet by skipping the first row when writing
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df_repartition.to_excel(writer, sheet_name="Planning", index=False, startrow=1)
+        df_repartition.to_excel(writer, sheet_name="Planning", index=False)
 
     output.seek(0)
     return output
@@ -205,8 +209,10 @@ if uploaded_file:
                         if sum(contrats.values()) != 100:
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
-                        planning_df = pd.read_excel(excel_file, sheet_name="Planning", index_col=0)
-                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}")
+                        # Read planning and skip first row (header already present)
+                        planning_df = pd.read_excel(excel_file, sheet_name="Planning")
+                        planning_df = planning_df.iloc[1:]  # Remove first line
+                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
                     except Exception as e:
                         st.warning(
                             f"Ligne {idx+1} ignorée : {e}" if is_fr else
