@@ -213,11 +213,12 @@ if uploaded_file:
                             code, pct = item.split(":")
                             contrats[code.strip()] = float(pct.strip())
                             donors[code.strip()] = donor_items[i].strip()
+                        st.write(f"Contrats parsed: {contrats}, sum: {sum(contrats.values())}")
                         if sum(contrats.values()) != 100:
                             st.warning(
-                                f"Ligne {idx+1} ignorée : la somme des pourcentages de contrats n'est pas 100" if is_fr else
-                                f"Row {idx+1} skipped: contract percentages do not sum to 100" if is_en else
-                                f"Fila {idx+1} omitida: los porcentajes de contratos no suman 100"
+                                f"Ligne {idx+1} ignorée : la somme des pourcentages de contrats n'est pas 100 (somme: {sum(contrats.values())})" if is_fr else
+                                f"Row {idx+1} skipped: contract percentages do not sum to 100 (sum: {sum(contrats.values())})" if is_en else
+                                f"Fila {idx+1} omitida: los porcentajes de contratos no suman 100 (suma: {sum(contrats.values())})"
                             )
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
