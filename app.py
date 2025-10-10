@@ -140,8 +140,8 @@ df_template = pd.DataFrame({
     "Mois" if is_fr else "Month" if is_en else "Mes": [10],
     "Heures par jour" if is_fr else "Hours per day" if is_en else "Horas por día": [8],
     "Jours fériés" if is_fr else "Holidays" if is_en else "Días festivos": ["2025-10-01,2025-10-15"],
-    "Contrats" if is_fr else "Contracts" if is_en else "Contratos": ["FH71_01:50,FH71_02:50"],
-    "Donor": ["Donor1,Donor2"]
+    "Contrats" if is_fr else "Contracts" if is_en else "Contratos": ["Contract1:50,Contract2:50"],
+    "Bailleurs" if is_fr else "Donors" if is_en else "Donarios": ["Donor1,Donor2"]
 })
 with pd.ExcelWriter(template, engine="openpyxl") as writer:
     df_template.to_excel(writer, index=False)
