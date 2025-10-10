@@ -45,15 +45,21 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
             continue
         max_alloc = [min(heures_restantes[code], heures_par_jour) for code in contrats_list]
         rng = np.random.default_rng()
+        tries = 0
         while True:
             props = rng.dirichlet(np.ones(len(contrats_list)))
             alloc = np.minimum(np.round(props * heures_par_jour * 2) / 2, max_alloc)
             diff = heures_par_jour - alloc.sum()
+            tries += 1
             if abs(diff) < 0.01:
                 break
             idx = np.argmax(max_alloc)
             if alloc[idx] + diff <= max_alloc[idx] and alloc[idx] + diff >= 0:
                 alloc[idx] += diff
+                break
+            # Add this line to see how many tries per day
+            if tries > 1000:
+                st.write(f"Warning: allocation for {jour_str} took {tries} tries")
                 break
         for idx, code in enumerate(contrats_list):
             df_repartition.loc[code, jour_str] = alloc[idx]
@@ -181,9 +187,14 @@ if uploaded_file:
         grouped = df_upload.groupby(year_col)
         download_files = []
 
+        progress_bar = st.progress(0)
+        total_rows = len(df_upload)
+        processed_rows = 0
+
         for year, group in grouped:
             output = BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                sheet_written = False
                 for idx, row in group.iterrows():
                     try:
                         mois = int(row["Mois"] if is_fr else row["Month"] if is_en else row["Mes"])
@@ -201,22 +212,39 @@ if uploaded_file:
                         donor_col = "Donor"
                         contrats_items = str(row[contrats_col]).split(",")
                         donor_items = str(row.get(donor_col, "")).split(",")
+                        if len(donor_items) != len(contrats_items):
+                            st.warning(
+                                f"Ligne {idx+1} ignorée : nombre de donors ({len(donor_items)}) différent du nombre de contrats ({len(contrats_items)})" if is_fr else
+                                f"Row {idx+1} skipped: number of donors ({len(donor_items)}) does not match number of contracts ({len(contrats_items)})" if is_en else
+                                f"Fila {idx+1} omitida: número de donantes ({len(donor_items)}) diferente al número de contratos ({len(contrats_items)})"
+                            )
+                            continue
                         for i, item in enumerate(contrats_items):
                             code, pct = item.split(":")
                             contrats[code.strip()] = float(pct.strip())
-                            donors[code.strip()] = donor_items[i].strip() if i < len(donor_items) else ""
+                            donors[code.strip()] = donor_items[i].strip()
+                        st.write(f"Contrats parsed: {contrats}, sum: {sum(contrats.values())}")
                         if sum(contrats.values()) != 100:
+                            st.warning(
+                                f"Ligne {idx+1} ignorée : la somme des pourcentages de contrats n'est pas 100 (somme: {sum(contrats.values())})" if is_fr else
+                                f"Row {idx+1} skipped: contract percentages do not sum to 100 (sum: {sum(contrats.values())})" if is_en else
+                                f"Fila {idx+1} omitida: los porcentajes de contratos no suman 100 (suma: {sum(contrats.values())})"
+                            )
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
-                        # Do NOT remove the first line; keep all rows
                         planning_df = pd.read_excel(excel_file, sheet_name="Planning")
                         planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
+                        sheet_written = True
                     except Exception as e:
                         st.warning(
                             f"Ligne {idx+1} ignorée : {e}" if is_fr else
                             f"Row {idx+1} skipped: {e}" if is_en else
                             f"Fila {idx+1} omitida: {e}"
                         )
+                    processed_rows += 1
+                    progress_bar.progress(processed_rows / total_rows)
+                if not sheet_written:
+                    pd.DataFrame({"Info": ["No valid rows"]}).to_excel(writer, sheet_name="Info", index=False)
             output.seek(0)
             download_files.append((year, output))
 
