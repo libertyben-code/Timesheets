@@ -240,5 +240,11 @@ if uploaded_file:
                 ),
                 data=fileobj,
                 file_name=(
+                    f"plannings_{year}.xlsx" if is_fr else
+                    f"timesheets_{year}.xlsx" if is_en else
+                    f"horarios_{year}.xlsx"
+                ),
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
 
