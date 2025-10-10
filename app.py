@@ -45,15 +45,21 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
             continue
         max_alloc = [min(heures_restantes[code], heures_par_jour) for code in contrats_list]
         rng = np.random.default_rng()
+        tries = 0
         while True:
             props = rng.dirichlet(np.ones(len(contrats_list)))
             alloc = np.minimum(np.round(props * heures_par_jour * 2) / 2, max_alloc)
             diff = heures_par_jour - alloc.sum()
+            tries += 1
             if abs(diff) < 0.01:
                 break
             idx = np.argmax(max_alloc)
             if alloc[idx] + diff <= max_alloc[idx] and alloc[idx] + diff >= 0:
                 alloc[idx] += diff
+                break
+            # Add this line to see how many tries per day
+            if tries > 1000:
+                st.write(f"Warning: allocation for {jour_str} took {tries} tries")
                 break
         for idx, code in enumerate(contrats_list):
             df_repartition.loc[code, jour_str] = alloc[idx]
@@ -181,10 +187,14 @@ if uploaded_file:
         grouped = df_upload.groupby(year_col)
         download_files = []
 
+        progress_bar = st.progress(0)
+        total_rows = len(df_upload)
+        processed_rows = 0
+
         for year, group in grouped:
             output = BytesIO()
             with pd.ExcelWriter(output, engine="openpyxl") as writer:
-                sheet_written = False  # Track if any sheet is written
+                sheet_written = False
                 for idx, row in group.iterrows():
                     try:
                         mois = int(row["Mois"] if is_fr else row["Month"] if is_en else row["Mes"])
@@ -231,8 +241,9 @@ if uploaded_file:
                             f"Row {idx+1} skipped: {e}" if is_en else
                             f"Fila {idx+1} omitida: {e}"
                         )
+                    processed_rows += 1
+                    progress_bar.progress(processed_rows / total_rows)
                 if not sheet_written:
-                    # Add a dummy sheet to avoid error
                     pd.DataFrame({"Info": ["No valid rows"]}).to_excel(writer, sheet_name="Info", index=False)
             output.seek(0)
             download_files.append((year, output))
