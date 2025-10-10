@@ -1,13 +1,10 @@
 # Générateur de Planning d'Heures
 
-Ce projet est une application Streamlit permettant de générer automatiquement des plannings d'heures pour différents codes de financement, selon une répartition mensuelle personnalisée. Elle propose la génération d'un planning unique ou de plusieurs plannings à partir d'un fichier Excel.
+Ce projet est une application Streamlit permettant de générer automatiquement des plannings d'heures pour différents codes de financement, selon une répartition mensuelle personnalisée. Elle propose la génération de plusieurs plannings à partir d'un fichier Excel.
 
 ---
 
 ## Fonctionnalités
-
-- **Génération d'un planning unique** :  
-  Saisissez le mois, l'année, le nombre d'heures par jour ouvré, les jours fériés et la répartition des pourcentages par contrat pour obtenir un fichier Excel prêt à l'emploi.
 
 - **Génération de plannings multiples** :  
   Importez un fichier Excel contenant plusieurs configurations (mois, année, jours fériés, contrats, etc.) pour générer automatiquement un fichier ZIP contenant tous les plannings.
@@ -17,33 +14,39 @@ Ce projet est une application Streamlit permettant de générer automatiquement 
 
 ---
 
-## Utilisation
+## Batch Upload (Génération de plannings multiples / Carga masiva)
 
-### 1. Générer un planning unique
+La fonctionnalité de **batch upload** permet de générer plusieurs plannings/timesheets/horarios à partir d'un fichier Excel.
 
-1. **Sélectionnez le mois et l'année**.
-2. **Choisissez le nombre d'heures par jour ouvré** (slider).
-3. **Indiquez les jours fériés** du mois (un par ligne, format `AAAA-MM-JJ`).
-4. **Définissez la répartition par contrat** :
-   - Indiquez le code de financement et le pourcentage pour chaque contrat.
-   - Le total des pourcentages doit être égal à 100%.
-5. Cliquez sur **"✅ Générer le planning"**.
-6. Téléchargez le fichier Excel généré.
+### Comment utiliser / How to use / Cómo usar
 
----
+1. **Téléchargez le modèle Excel**  
+   Cliquez sur le bouton pour télécharger la structure à remplir (les noms de colonnes changent selon la langue sélectionnée).
 
-### 2. Générer plusieurs plannings via Excel
+2. **Remplissez le fichier**  
+   Chaque ligne doit contenir :
+   - **Année / Year / Año** : ex. `2025`
+   - **Mois / Month / Mes** : ex. `10`
+   - **Heures par jour / Hours per day / Horas por día** : ex. `8`
+   - **Jours fériés / Holidays / Días festivos** : liste séparée par des virgules, ex. `2025-10-01,2025-10-15`
+   - **Contrats / Contracts / Contratos** : liste séparée par des virgules, ex. `FH71_01:50,FH71_02:50`
+   - **Donor** : liste séparée par des virgules, ex. `Donor1,Donor2` (optionnel)
 
-1. Cliquez sur **"📥 Télécharger le modèle Excel"** pour obtenir le modèle à remplir.
-2. Remplissez le fichier avec vos différentes configurations :
-   - **Année** : ex. `2025`
-   - **Mois** : ex. `10`
-   - **Heures par jour** : ex. `8`
-   - **Jours fériés** : liste séparée par des virgules, ex. `2025-10-01,2025-10-15`
-   - **Contrats** : liste séparée par des virgules, ex. `FH71_01:50,FH71_02:50`
-3. Importez le fichier via le bouton d'import.
-4. Cliquez sur **"✅ Générer tous les plannings du fichier"**.
-5. Téléchargez le fichier ZIP contenant tous les plannings générés.
+3. **Importez le fichier**  
+   Utilisez le bouton d'import pour charger votre fichier Excel.
+
+4. **Générez tous les plannings**  
+   Cliquez sur le bouton pour générer tous les plannings/timesheets/horarios du fichier.
+
+5. **Téléchargez le ZIP**  
+   Un fichier ZIP contenant tous les plannings annuels sera proposé au téléchargement.
+
+### Notes
+
+- Les colonnes doivent correspondre à la langue sélectionnée.
+- Les pourcentages de contrats doivent totaliser 100% sur chaque ligne.
+- Les jours fériés doivent être au format `AAAA-MM-JJ` (`YYYY-MM-DD`).
+- Les codes de financement et les donneurs sont associés dans l'ordre de la liste.
 
 ---
 
@@ -60,3 +63,9 @@ Ce projet est une application Streamlit permettant de générer automatiquement 
 - [Streamlit](https://streamlit.io/)
 - [Pandas](https://pandas.pydata.org/)
 - [Openpyxl](https://openpyxl.readthedocs.io/)
+
+---
+
+## Author
+
+Vibe coded by Ben LIBERTY in Visual Studio Code use GPT-4.1
