@@ -308,9 +308,8 @@ if uploaded_file:
     )
     st.dataframe(df_upload)
 
-    # Initialize session state for download files
-    if 'zip_data' not in st.session_state:
-        st.session_state.zip_data = None
+    # Initialize and reset session state for download files when new file is uploaded
+    st.session_state.zip_data = None
     
     if st.button(
         "✅ Générer tous les plannings du fichier" if is_fr else
