@@ -24,6 +24,9 @@ def get_jours_ouvres(mois, annee, jours_feries):
     return jours_ouvres
 
 def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jour, jours_feries, donors=None):
+    import openpyxl
+    from copy import copy
+    
     jours_mois = get_all_days(mois_selectionne, annee_selectionnee)
     jours_ouvres = get_jours_ouvres(mois_selectionne, annee_selectionnee, jours_feries)
     nb_jours_ouvres = len(jours_ouvres)
@@ -76,12 +79,48 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
     df_repartition.insert(0, "Financing Code", financing_values)
     df_repartition.insert(0, "Donor", donor_values)
 
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df_repartition.to_excel(writer, sheet_name="Planning", index=False, startrow=7)
-
-    output.seek(0)
-    return output
+    # Load the existing template and fill it with data
+    try:
+        # Load the template workbook
+        template_wb = openpyxl.load_workbook("Trame timesheet.xlsx")
+        
+        # Create output in memory
+        output = BytesIO()
+        
+        # Save the modified workbook to output
+        template_wb.save(output)
+        
+        # Now reopen and fill with our data
+        output.seek(0)
+        wb = openpyxl.load_workbook(output)
+        ws = wb.active
+        
+        # Fill the data starting from row 8 (as per your previous requirement)
+        start_row = 8
+        
+        # Write headers
+        for col_idx, col_name in enumerate(df_repartition.columns, start=1):
+            ws.cell(row=start_row, column=col_idx, value=col_name)
+        
+        # Write data
+        for row_idx, (index, row_data) in enumerate(df_repartition.iterrows(), start=start_row + 1):
+            for col_idx, value in enumerate(row_data, start=1):
+                ws.cell(row=row_idx, column=col_idx, value=value)
+        
+        # Save to BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return output
+        
+    except FileNotFoundError:
+        st.warning("Template 'Trame timesheet.xlsx' not found. Creating new file...")
+        # Fallback to original method if template not found
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df_repartition.to_excel(writer, sheet_name="Planning", index=False, startrow=7)
+        output.seek(0)
+        return output
 
 # =============================
 # Language toggle (flags)
@@ -258,14 +297,7 @@ if uploaded_file:
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
                         planning_df = pd.read_excel(excel_file, sheet_name="Planning")
-                        
-                        # Create unique sheet name for each row
-                        sheet_name = f"Row_{idx+1}_{calendar.month_name[mois][:3]}_{year}"
-                        # Ensure sheet name is valid (max 31 chars for Excel)
-                        if len(sheet_name) > 31:
-                            sheet_name = f"R{idx+1}_{calendar.month_name[mois][:3]}_{year}"
-                        
-                        planning_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
                         sheet_written = True
                     except Exception as e:
                         st.warning(
