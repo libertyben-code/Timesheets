@@ -70,13 +70,11 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
             df_repartition.loc[code, jour_str] = alloc[idx]
             heures_restantes[code] -= alloc[idx]
 
-    df_repartition.loc["Total/jour"] = df_repartition.sum(axis=0)
-
     # Add Donor, Financing and Project columns to the left
     donor_values = [donors.get(code, "") if donors else "" for code in df_repartition.index]
     financing_values = list(df_repartition.index)
     project_values = ["" for code in df_repartition.index]  # Add your project data here
-    df_repartition.insert(0, "Project", project_values)
+    df_repartition.insert(0, "", project_values)
     df_repartition.insert(0, "Financing Code", financing_values)
     df_repartition.insert(0, "Donor", donor_values)
 
