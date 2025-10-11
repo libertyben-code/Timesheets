@@ -109,14 +109,12 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
         for col_idx, col_name in enumerate(df_repartition.columns, start=1):
             ws.cell(row=start_row, column=col_idx, value=col_name)
         
-        # Write 3-letter day names in row 7 for date columns
         # Day abbreviations in different languages
         day_abbr_fr = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
         day_abbr_en = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
         day_abbr_es = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
         
         # Determine language from existing global variables (if available)
-        # Default to French if not available
         try:
             if 'is_fr' in globals() and is_fr:
                 day_abbr = day_abbr_fr
@@ -129,13 +127,26 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
         except:
             day_abbr = day_abbr_en  # Fallback to English
         
-        # Write day abbreviations for date columns (skip first 3 columns: Donor, Financing Code, Project)
+        # Write date numbers in row 7 and day abbreviations in row 8 for date columns
+        # (skip first 3 columns: Donor, Financing Code, Project)
         for col_idx, col_name in enumerate(df_repartition.columns[3:], start=4):
             try:
-                # Parse the date string to get the day of week
+                # Parse the date string
                 date_obj = datetime.strptime(col_name, "%Y-%m-%d")
+                # Write day number in row 7
+                day_number = date_obj.day  # Get the day of the month (1-31)
+                ws.cell(row=7, column=col_idx, value=day_number)
+                # Write day abbreviation in row 8
                 day_index = date_obj.weekday()  # 0=Monday, 6=Sunday
-                ws.cell(row=7, column=col_idx, value=day_abbr[day_index])
+                ws.cell(row=8, column=col_idx, value=day_abbr[day_index])
+                
+                # If it's a weekend (Saturday=5 or Sunday=6), set red background for rows 9-16
+                if day_index >= 5:  # Saturday or Sunday
+                    from openpyxl.styles import PatternFill
+                    red_fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
+                    for row_num in range(9, 17):  # rows 9 to 16
+                        ws.cell(row=row_num, column=col_idx).fill = red_fill
+                        
             except:
                 # If it's not a date column, skip it
                 pass
