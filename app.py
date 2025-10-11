@@ -97,9 +97,48 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
         # Fill the data starting from row 8 (as per your previous requirement)
         start_row = 8
         
+        # Write month information to specific cells
+        # Q3 = Column 17, Row 3 (Month name)
+        ws.cell(row=3, column=17, value=calendar.month_name[mois_selectionne])
+        # Q4 = Column 17, Row 4 (Month number)
+        ws.cell(row=4, column=17, value=mois_selectionne)
+        # Q5 = Column 17, Row 5 (Year)
+        ws.cell(row=5, column=17, value=annee_selectionnee)
+        
         # Write headers
         for col_idx, col_name in enumerate(df_repartition.columns, start=1):
             ws.cell(row=start_row, column=col_idx, value=col_name)
+        
+        # Write 3-letter day names in row 7 for date columns
+        # Day abbreviations in different languages
+        day_abbr_fr = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+        day_abbr_en = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        day_abbr_es = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+        
+        # Determine language from existing global variables (if available)
+        # Default to French if not available
+        try:
+            if 'is_fr' in globals() and is_fr:
+                day_abbr = day_abbr_fr
+            elif 'is_en' in globals() and is_en:
+                day_abbr = day_abbr_en
+            elif 'is_es' in globals() and is_es:
+                day_abbr = day_abbr_es
+            else:
+                day_abbr = day_abbr_en  # Default to English
+        except:
+            day_abbr = day_abbr_en  # Fallback to English
+        
+        # Write day abbreviations for date columns (skip first 3 columns: Donor, Financing Code, Project)
+        for col_idx, col_name in enumerate(df_repartition.columns[3:], start=4):
+            try:
+                # Parse the date string to get the day of week
+                date_obj = datetime.strptime(col_name, "%Y-%m-%d")
+                day_index = date_obj.weekday()  # 0=Monday, 6=Sunday
+                ws.cell(row=7, column=col_idx, value=day_abbr[day_index])
+            except:
+                # If it's not a date column, skip it
+                pass
         
         # Write data
         for row_idx, (index, row_data) in enumerate(df_repartition.iterrows(), start=start_row + 1):
