@@ -5,6 +5,8 @@ import calendar
 from datetime import date, timedelta, datetime
 from io import BytesIO
 import zipfile
+import openpyxl
+from copy import copy
 
 # =============================
 # Fonctions auxiliaires
@@ -300,8 +302,27 @@ if uploaded_file:
                             )
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
-                        planning_df = pd.read_excel(excel_file, sheet_name="Planning")
-                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
+                        # Read the generated workbook and copy it to our output
+                        temp_wb = openpyxl.load_workbook(excel_file)
+                        temp_ws = temp_wb.active
+                        
+                        # Create new worksheet in our output with month name
+                        sheet_name = f"{calendar.month_name[mois]}"
+                        new_ws = writer.book.create_sheet(title=sheet_name)
+                        
+                        # Copy all data and formatting from template to new sheet
+                        for row in temp_ws.iter_rows():
+                            for cell in row:
+                                new_cell = new_ws.cell(row=cell.row, column=cell.column, value=cell.value)
+                                # Copy formatting if needed
+                                if cell.has_style:
+                                    new_cell.font = copy(cell.font)
+                                    new_cell.border = copy(cell.border)
+                                    new_cell.fill = copy(cell.fill)
+                                    new_cell.number_format = copy(cell.number_format)
+                                    new_cell.protection = copy(cell.protection)
+                                    new_cell.alignment = copy(cell.alignment)
+                        
                         sheet_written = True
                     except Exception as e:
                         st.warning(
