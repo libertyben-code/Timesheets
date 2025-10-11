@@ -5,6 +5,8 @@ import calendar
 from datetime import date, timedelta, datetime
 from io import BytesIO
 import zipfile
+import openpyxl
+from copy import copy
 
 # =============================
 # Fonctions auxiliaires
@@ -23,7 +25,10 @@ def get_jours_ouvres(mois, annee, jours_feries):
     jours_ouvres = [d for d in all_days if d.weekday() < 5 and d not in jours_feries]
     return jours_ouvres
 
-def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jour, jours_feries, donors=None):
+def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jour, jours_feries, donors=None, is_fr=False, is_en=False, is_es=False):
+    import openpyxl
+    from copy import copy
+    
     jours_mois = get_all_days(mois_selectionne, annee_selectionnee)
     jours_ouvres = get_jours_ouvres(mois_selectionne, annee_selectionnee, jours_feries)
     nb_jours_ouvres = len(jours_ouvres)
@@ -65,21 +70,142 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
             df_repartition.loc[code, jour_str] = alloc[idx]
             heures_restantes[code] -= alloc[idx]
 
-    df_repartition.loc["Total/jour"] = df_repartition.sum(axis=0)
-    df_repartition["Total contrat"] = df_repartition.sum(axis=1)
-
-    # Add Donor and Financing columns to the left
+    # Add Donor, Financing and Project columns to the left
     donor_values = [donors.get(code, "") if donors else "" for code in df_repartition.index]
     financing_values = list(df_repartition.index)
+    project_values = ["" for code in df_repartition.index]  # Add your project data here
+    df_repartition.insert(0, "", project_values)
     df_repartition.insert(0, "Financing Code", financing_values)
     df_repartition.insert(0, "Donor", donor_values)
 
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df_repartition.to_excel(writer, sheet_name="Planning", index=False)
-
-    output.seek(0)
-    return output
+    # Load the existing template and fill it with data
+    try:
+        # Load the template workbook
+        template_wb = openpyxl.load_workbook("Trame timesheet.xlsx")
+        
+        # Create output in memory
+        output = BytesIO()
+        
+        # Save the modified workbook to output
+        template_wb.save(output)
+        
+        # Now reopen and fill with our data
+        output.seek(0)
+        wb = openpyxl.load_workbook(output)
+        ws = wb.active
+        
+        # Fill the data starting from row 8 (as per your previous requirement)
+        start_row = 8
+        
+        # Month names in different languages
+        months_fr = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+                    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+        months_en = ["", "January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"] 
+        months_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        
+        # Get month name in correct language
+        if is_fr:
+            month_name = months_fr[mois_selectionne]
+        elif is_es:
+            month_name = months_es[mois_selectionne]
+        else:  # Default to English
+            month_name = months_en[mois_selectionne]
+        
+        # Write month information to specific cells
+        # Q3 = Column 17, Row 3 (Month name)
+        ws.cell(row=3, column=17, value=month_name)
+        # Q4 = Column 17, Row 4 (Month number)
+        ws.cell(row=4, column=17, value=mois_selectionne)
+        # Q5 = Column 17, Row 5 (Year)
+        ws.cell(row=5, column=17, value=annee_selectionnee)
+        
+        # Write headers
+        for col_idx, col_name in enumerate(df_repartition.columns, start=1):
+            ws.cell(row=start_row, column=col_idx, value=col_name)
+        
+        # Day abbreviations in different languages
+        day_abbr_fr = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+        day_abbr_en = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        day_abbr_es = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+        
+        # Determine language from existing global variables (if available)
+        try:
+            if 'is_fr' in globals() and is_fr:
+                day_abbr = day_abbr_fr
+            elif 'is_en' in globals() and is_en:
+                day_abbr = day_abbr_en
+            elif 'is_es' in globals() and is_es:
+                day_abbr = day_abbr_es
+            else:
+                day_abbr = day_abbr_en  # Default to English
+        except:
+            day_abbr = day_abbr_en  # Fallback to English
+        
+        # Write date numbers in row 7 and day abbreviations in row 8 for date columns
+        # (skip first 3 columns: Donor, Financing Code, Project)
+        for col_idx, col_name in enumerate(df_repartition.columns[3:], start=4):
+            try:
+                # Parse the date string
+                date_obj = datetime.strptime(col_name, "%Y-%m-%d")
+                # Write day number in row 7
+                day_number = date_obj.day  # Get the day of the month (1-31)
+                ws.cell(row=7, column=col_idx, value=day_number)
+                # Write day abbreviation in row 8
+                day_index = date_obj.weekday()  # 0=Monday, 6=Sunday
+                ws.cell(row=8, column=col_idx, value=day_abbr[day_index])
+                
+                # If it's a weekend (Saturday=5 or Sunday=6), set red background for rows 9-16
+                if day_index >= 5:  # Saturday or Sunday
+                    from openpyxl.styles import PatternFill
+                    red_fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
+                    for row_num in range(7, 17):  # rows 9 to 16
+                        ws.cell(row=row_num, column=col_idx).fill = red_fill
+                        
+            except:
+                # If it's not a date column, skip it
+                pass
+        
+        # Write data
+        for row_idx, (index, row_data) in enumerate(df_repartition.iterrows(), start=start_row + 1):
+            for col_idx, value in enumerate(row_data, start=1):
+                ws.cell(row=row_idx, column=col_idx, value=value)
+        
+        # Set column width for date columns
+        # Skip first 3 columns: Donor, Financing Code, Project
+        for col_idx, col_name in enumerate(df_repartition.columns[3:], start=4):
+            try:
+                # Check if it's a date column
+                datetime.strptime(col_name, "%Y-%m-%d")
+                # Set column width
+                ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = 4.77
+            except:
+                # If it's not a date column, skip it
+                pass
+        
+        # Set column width for column Q (5) to properly display year information
+        ws.column_dimensions['Q'].width = 5
+        
+        # Set print settings: landscape orientation and fit to width
+        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = False  # Allow multiple pages vertically if needed
+        
+        # Save to BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return output
+        
+    except FileNotFoundError:
+        st.warning("Template 'Trame timesheet.xlsx' not found. Creating new file...")
+        # Fallback to original method if template not found
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df_repartition.to_excel(writer, sheet_name="Planning", index=False, startrow=7)
+        output.seek(0)
+        return output
 
 # =============================
 # Language toggle (flags)
@@ -106,14 +232,19 @@ st.markdown(
 )
 
 selected_lang_label = st.radio(
-    label="",
+    label="Language Selection",
     options=lang_labels,
-    horizontal=True
+    horizontal=True,
+    label_visibility="hidden"
 )
 lang = lang_map[selected_lang_label]
 is_fr = lang == "Français"
 is_en = lang == "English"
 is_es = lang == "Español"
+
+# Initialize session state
+if 'zip_data' not in st.session_state:
+    st.session_state.zip_data = None
 
 # =============================
 # Interface Streamlit
@@ -189,7 +320,7 @@ st.subheader(
     "Upload an Excel file to generate annual timesheets" if is_en else
     "Subir un archivo Excel para generar los horarios anuales"
 )
-uploaded_file = st.file_uploader("", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"], label_visibility="hidden")
 
 if uploaded_file:
     df_upload = pd.read_excel(uploaded_file)
@@ -200,12 +331,44 @@ if uploaded_file:
     )
     st.dataframe(df_upload)
 
+    # Initialize and reset session state for download files when new file is uploaded
+    st.session_state.zip_data = None
+    
     if st.button(
         "✅ Générer tous les plannings du fichier" if is_fr else
         "✅ Generate all timesheets from file" if is_en else
         "✅ Generar todos los horarios del archivo"
     ):
         year_col = "Année" if is_fr else "Year" if is_en else "Año"
+        
+        # Define all required columns based on language
+        month_col = "Mois" if is_fr else "Month" if is_en else "Mes"
+        hours_col = "Heures par jour" if is_fr else "Hours per day" if is_en else "Horas por día"
+        contracts_col = "Contrats" if is_fr else "Contracts" if is_en else "Contratos"
+        
+        required_columns = [year_col, month_col, hours_col, contracts_col]
+        missing_columns = [col for col in required_columns if col not in df_upload.columns]
+        
+        if missing_columns:
+            st.error(
+                f"❌ **Erreur : Colonnes manquantes dans le fichier**\n\n"
+                f"**Colonnes requises :** {', '.join(required_columns)}\n\n"
+                f"**Colonnes manquantes :** {', '.join(missing_columns)}\n\n"
+                f"**Colonnes disponibles :** {', '.join(df_upload.columns)}\n\n"
+                f"💡 **Solution :** Téléchargez le modèle Excel ci-dessus et utilisez-le comme format de référence." if is_fr else
+                f"❌ **Error: Missing columns in file**\n\n"
+                f"**Required columns:** {', '.join(required_columns)}\n\n"
+                f"**Missing columns:** {', '.join(missing_columns)}\n\n"
+                f"**Available columns:** {', '.join(df_upload.columns)}\n\n"
+                f"💡 **Solution:** Download the Excel template above and use it as a reference format." if is_en else
+                f"❌ **Error: Columnas faltantes en el archivo**\n\n"
+                f"**Columnas requeridas:** {', '.join(required_columns)}\n\n"
+                f"**Columnas faltantes:** {', '.join(missing_columns)}\n\n"
+                f"**Columnas disponibles:** {', '.join(df_upload.columns)}\n\n"
+                f"💡 **Solución:** Descargue la plantilla de Excel de arriba y úsela como formato de referencia."
+            )
+            st.stop()
+            
         grouped = df_upload.groupby(year_col)
         download_files = []
 
@@ -231,7 +394,7 @@ if uploaded_file:
                         contrats = {}
                         donors = {}
                         contrats_col = "Contrats" if is_fr else "Contracts" if is_en else "Contratos"
-                        donor_col = "Donor"
+                        donor_col = "Bailleurs" if is_fr else "Donors" if is_en else "Donarios"
                         contrats_items = str(row[contrats_col]).split(",")
                         donor_items = str(row.get(donor_col, "")).split(",")
                         if len(donor_items) != len(contrats_items):
@@ -253,9 +416,50 @@ if uploaded_file:
                                 f"Fila {idx+1} omitida: los porcentajes de contratos no suman 100 (suma: {sum(contrats.values())})"
                             )
                             continue
-                        excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
-                        planning_df = pd.read_excel(excel_file, sheet_name="Planning")
-                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
+                        excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors, is_fr, is_en, is_es)
+                        # Read the generated workbook and copy it to our output
+                        temp_wb = openpyxl.load_workbook(excel_file)
+                        temp_ws = temp_wb.active
+                        
+                        # Create new worksheet in our output with localized month name
+                        months_fr = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+                                    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+                        months_en = ["", "January", "February", "March", "April", "May", "June",
+                                    "July", "August", "September", "October", "November", "December"] 
+                        months_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                        
+                        if is_fr:
+                            sheet_name = months_fr[mois]
+                        elif is_es:
+                            sheet_name = months_es[mois]
+                        else:  # Default to English
+                            sheet_name = months_en[mois]
+                        new_ws = writer.book.create_sheet(title=sheet_name)
+                        
+                        # Copy all data and formatting from template to new sheet
+                        for row in temp_ws.iter_rows():
+                            for cell in row:
+                                new_cell = new_ws.cell(row=cell.row, column=cell.column, value=cell.value)
+                                # Copy formatting if needed
+                                if cell.has_style:
+                                    new_cell.font = copy(cell.font)
+                                    new_cell.border = copy(cell.border)
+                                    new_cell.fill = copy(cell.fill)
+                                    new_cell.number_format = copy(cell.number_format)
+                                    new_cell.protection = copy(cell.protection)
+                                    new_cell.alignment = copy(cell.alignment)
+                        
+                        # Copy column dimensions from template
+                        for col_letter, col_dim in temp_ws.column_dimensions.items():
+                            new_ws.column_dimensions[col_letter].width = col_dim.width
+                        
+                        # Set print settings for the output sheet
+                        new_ws.page_setup.orientation = new_ws.ORIENTATION_LANDSCAPE
+                        new_ws.page_setup.fitToWidth = 1
+                        new_ws.page_setup.fitToHeight = 0  # Use 0 instead of False
+                        new_ws.sheet_properties.pageSetUpPr.fitToPage = True  # Enable fit to page mode
+                        
                         sheet_written = True
                     except Exception as e:
                         st.warning(
@@ -276,6 +480,7 @@ if uploaded_file:
             "¡Todos los horarios han sido generados!"
         )
 
+        # Create ZIP file and store in session state
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
             for year, fileobj in download_files:
@@ -286,20 +491,35 @@ if uploaded_file:
                 )
                 zipf.writestr(filename, fileobj.getvalue())
         zip_buffer.seek(0)
+        
+        # Store zip data in session state
+        st.session_state.zip_data = zip_buffer.getvalue()
 
-        st.download_button(
-            label=(
-                "📥 Télécharger tous les plannings (ZIP)" if is_fr else
-                "📥 Download all timesheets (ZIP)" if is_en else
-                "📥 Descargar todos los horarios (ZIP)"
-            ),
-            data=zip_buffer,
-            file_name=(
-                "plannings_annuels.zip" if is_fr else
-                "yearly_timesheets.zip" if is_en else
-                "horarios_anuales.zip"
-            ),
-            mime="application/zip"
-        )
+    # Show download button only if zip data is available
+    if hasattr(st.session_state, 'zip_data') and st.session_state.zip_data is not None:
+        try:
+            st.download_button(
+                label=(
+                    "📥 Télécharger tous les plannings (ZIP)" if is_fr else
+                    "📥 Download all timesheets (ZIP)" if is_en else
+                    "📥 Descargar todos los horarios (ZIP)"
+                ),
+                data=st.session_state.zip_data,
+                file_name=(
+                    "plannings_annuels.zip" if is_fr else
+                    "yearly_timesheets.zip" if is_en else
+                    "horarios_anuales.zip"
+                ),
+                mime="application/zip",
+                key="download_timesheets_zip"
+            )
+        except Exception as e:
+            st.error(
+                f"Erreur lors de la génération du téléchargement. Veuillez régénérer les plannings." if is_fr else
+                f"Error generating download. Please regenerate the timesheets." if is_en else
+                f"Error al generar la descarga. Por favor regenere los horarios."
+            )
+            # Clear the problematic zip data
+            st.session_state.zip_data = None
 
 
