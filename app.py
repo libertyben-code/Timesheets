@@ -162,11 +162,16 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
             try:
                 # Check if it's a date column
                 datetime.strptime(col_name, "%Y-%m-%d")
-                # Set column width (70 pixels ≈ 9.14 Excel column units)
-                ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = 9.14
+                # Set column width
+                ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = 4.77
             except:
                 # If it's not a date column, skip it
                 pass
+        
+        # Set print settings: landscape orientation and fit to width
+        ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = False  # Allow multiple pages vertically if needed
         
         # Save to BytesIO
         output = BytesIO()
