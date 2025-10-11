@@ -234,7 +234,7 @@ if uploaded_file:
                         contrats = {}
                         donors = {}
                         contrats_col = "Contrats" if is_fr else "Contracts" if is_en else "Contratos"
-                        donor_col = "Donor"
+                        donor_col = "Bailleurs" if is_fr else "Donors" if is_en else "Donarios"
                         contrats_items = str(row[contrats_col]).split(",")
                         donor_items = str(row.get(donor_col, "")).split(",")
                         if len(donor_items) != len(contrats_items):
