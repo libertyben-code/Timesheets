@@ -242,6 +242,10 @@ if uploaded_file:
     )
     st.dataframe(df_upload)
 
+    # Initialize session state for download files
+    if 'zip_data' not in st.session_state:
+        st.session_state.zip_data = None
+    
     if st.button(
         "✅ Générer tous les plannings du fichier" if is_fr else
         "✅ Generate all timesheets from file" if is_en else
@@ -318,6 +322,7 @@ if uploaded_file:
             "¡Todos los horarios han sido generados!"
         )
 
+        # Create ZIP file and store in session state
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
             for year, fileobj in download_files:
@@ -328,14 +333,19 @@ if uploaded_file:
                 )
                 zipf.writestr(filename, fileobj.getvalue())
         zip_buffer.seek(0)
+        
+        # Store zip data in session state
+        st.session_state.zip_data = zip_buffer.getvalue()
 
+    # Show download button only if zip data is available
+    if st.session_state.zip_data is not None:
         st.download_button(
             label=(
                 "📥 Télécharger tous les plannings (ZIP)" if is_fr else
                 "📥 Download all timesheets (ZIP)" if is_en else
                 "📥 Descargar todos los horarios (ZIP)"
             ),
-            data=zip_buffer,
+            data=st.session_state.zip_data,
             file_name=(
                 "plannings_annuels.zip" if is_fr else
                 "yearly_timesheets.zip" if is_en else
