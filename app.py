@@ -184,6 +184,9 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
                 # If it's not a date column, skip it
                 pass
         
+        # Set column width for column Q (17) to properly display year information
+        ws.column_dimensions['Q'].width = 12
+        
         # Set print settings: landscape orientation and fit to width
         ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
         ws.page_setup.fitToWidth = 1
