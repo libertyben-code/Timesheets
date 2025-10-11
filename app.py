@@ -258,7 +258,14 @@ if uploaded_file:
                             continue
                         excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
                         planning_df = pd.read_excel(excel_file, sheet_name="Planning")
-                        planning_df.to_excel(writer, sheet_name=f"{calendar.month_name[mois]}", index=False)
+                        
+                        # Create unique sheet name for each row
+                        sheet_name = f"Row_{idx+1}_{calendar.month_name[mois][:3]}_{year}"
+                        # Ensure sheet name is valid (max 31 chars for Excel)
+                        if len(sheet_name) > 31:
+                            sheet_name = f"R{idx+1}_{calendar.month_name[mois][:3]}_{year}"
+                        
+                        planning_df.to_excel(writer, sheet_name=sheet_name, index=False)
                         sheet_written = True
                     except Exception as e:
                         st.warning(
