@@ -108,9 +108,10 @@ st.markdown(
 )
 
 selected_lang_label = st.radio(
-    label="",
+    label="Language Selection",
     options=lang_labels,
-    horizontal=True
+    horizontal=True,
+    label_visibility="hidden"
 )
 lang = lang_map[selected_lang_label]
 is_fr = lang == "Français"
@@ -191,7 +192,7 @@ st.subheader(
     "Upload an Excel file to generate annual timesheets" if is_en else
     "Subir un archivo Excel para generar los horarios anuales"
 )
-uploaded_file = st.file_uploader("", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"], label_visibility="hidden")
 
 if uploaded_file:
     df_upload = pd.read_excel(uploaded_file)
