@@ -242,6 +242,10 @@ is_fr = lang == "Français"
 is_en = lang == "English"
 is_es = lang == "Español"
 
+# Initialize session state
+if 'zip_data' not in st.session_state:
+    st.session_state.zip_data = None
+
 # =============================
 # Interface Streamlit
 # =============================
@@ -492,20 +496,30 @@ if uploaded_file:
         st.session_state.zip_data = zip_buffer.getvalue()
 
     # Show download button only if zip data is available
-    if st.session_state.zip_data is not None:
-        st.download_button(
-            label=(
-                "📥 Télécharger tous les plannings (ZIP)" if is_fr else
-                "📥 Download all timesheets (ZIP)" if is_en else
-                "📥 Descargar todos los horarios (ZIP)"
-            ),
-            data=st.session_state.zip_data,
-            file_name=(
-                "plannings_annuels.zip" if is_fr else
-                "yearly_timesheets.zip" if is_en else
-                "horarios_anuales.zip"
-            ),
-            mime="application/zip"
-        )
+    if hasattr(st.session_state, 'zip_data') and st.session_state.zip_data is not None:
+        try:
+            st.download_button(
+                label=(
+                    "📥 Télécharger tous les plannings (ZIP)" if is_fr else
+                    "📥 Download all timesheets (ZIP)" if is_en else
+                    "📥 Descargar todos los horarios (ZIP)"
+                ),
+                data=st.session_state.zip_data,
+                file_name=(
+                    "plannings_annuels.zip" if is_fr else
+                    "yearly_timesheets.zip" if is_en else
+                    "horarios_anuales.zip"
+                ),
+                mime="application/zip",
+                key="download_timesheets_zip"
+            )
+        except Exception as e:
+            st.error(
+                f"Erreur lors de la génération du téléchargement. Veuillez régénérer les plannings." if is_fr else
+                f"Error generating download. Please regenerate the timesheets." if is_en else
+                f"Error al generar la descarga. Por favor regenere los horarios."
+            )
+            # Clear the problematic zip data
+            st.session_state.zip_data = None
 
 
