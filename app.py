@@ -25,7 +25,7 @@ def get_jours_ouvres(mois, annee, jours_feries):
     jours_ouvres = [d for d in all_days if d.weekday() < 5 and d not in jours_feries]
     return jours_ouvres
 
-def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jour, jours_feries, donors=None):
+def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jour, jours_feries, donors=None, is_fr=False, is_en=False, is_es=False):
     import openpyxl
     from copy import copy
     
@@ -97,9 +97,25 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
         # Fill the data starting from row 8 (as per your previous requirement)
         start_row = 8
         
+        # Month names in different languages
+        months_fr = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+                    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+        months_en = ["", "January", "February", "March", "April", "May", "June",
+                    "July", "August", "September", "October", "November", "December"] 
+        months_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        
+        # Get month name in correct language
+        if is_fr:
+            month_name = months_fr[mois_selectionne]
+        elif is_es:
+            month_name = months_es[mois_selectionne]
+        else:  # Default to English
+            month_name = months_en[mois_selectionne]
+        
         # Write month information to specific cells
         # Q3 = Column 17, Row 3 (Month name)
-        ws.cell(row=3, column=17, value=calendar.month_name[mois_selectionne])
+        ws.cell(row=3, column=17, value=month_name)
         # Q4 = Column 17, Row 4 (Month number)
         ws.cell(row=4, column=17, value=mois_selectionne)
         # Q5 = Column 17, Row 5 (Year)
@@ -364,13 +380,25 @@ if uploaded_file:
                                 f"Fila {idx+1} omitida: los porcentajes de contratos no suman 100 (suma: {sum(contrats.values())})"
                             )
                             continue
-                        excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors)
+                        excel_file = generer_excel(mois, year, contrats, heures_par_jour, jours_feries, donors, is_fr, is_en, is_es)
                         # Read the generated workbook and copy it to our output
                         temp_wb = openpyxl.load_workbook(excel_file)
                         temp_ws = temp_wb.active
                         
-                        # Create new worksheet in our output with month name
-                        sheet_name = f"{calendar.month_name[mois]}"
+                        # Create new worksheet in our output with localized month name
+                        months_fr = ["", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin", 
+                                    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+                        months_en = ["", "January", "February", "March", "April", "May", "June",
+                                    "July", "August", "September", "October", "November", "December"] 
+                        months_es = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                        
+                        if is_fr:
+                            sheet_name = months_fr[mois]
+                        elif is_es:
+                            sheet_name = months_es[mois]
+                        else:  # Default to English
+                            sheet_name = months_en[mois]
                         new_ws = writer.book.create_sheet(title=sheet_name)
                         
                         # Copy all data and formatting from template to new sheet
