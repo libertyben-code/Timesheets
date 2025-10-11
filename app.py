@@ -144,7 +144,7 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
                 if day_index >= 5:  # Saturday or Sunday
                     from openpyxl.styles import PatternFill
                     red_fill = PatternFill(start_color="FFCCCC", end_color="FFCCCC", fill_type="solid")
-                    for row_num in range(9, 17):  # rows 9 to 16
+                    for row_num in range(7, 17):  # rows 9 to 16
                         ws.cell(row=row_num, column=col_idx).fill = red_fill
                         
             except:
@@ -155,6 +155,18 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
         for row_idx, (index, row_data) in enumerate(df_repartition.iterrows(), start=start_row + 1):
             for col_idx, value in enumerate(row_data, start=1):
                 ws.cell(row=row_idx, column=col_idx, value=value)
+        
+        # Set column width for date columns (70 pixels ≈ 9.14 Excel units)
+        # Skip first 3 columns: Donor, Financing Code, Project
+        for col_idx, col_name in enumerate(df_repartition.columns[3:], start=4):
+            try:
+                # Check if it's a date column
+                datetime.strptime(col_name, "%Y-%m-%d")
+                # Set column width (70 pixels ≈ 9.14 Excel column units)
+                ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = 9.14
+            except:
+                # If it's not a date column, skip it
+                pass
         
         # Save to BytesIO
         output = BytesIO()
