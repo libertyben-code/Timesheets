@@ -394,7 +394,8 @@ if uploaded_file:
                         # Set print settings for the output sheet
                         new_ws.page_setup.orientation = new_ws.ORIENTATION_LANDSCAPE
                         new_ws.page_setup.fitToWidth = 1
-                        new_ws.page_setup.fitToHeight = False
+                        new_ws.page_setup.fitToHeight = 0  # Use 0 instead of False
+                        new_ws.sheet_properties.pageSetUpPr.fitToPage = True  # Enable fit to page mode
                         
                         sheet_written = True
                     except Exception as e:
