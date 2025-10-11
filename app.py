@@ -156,7 +156,7 @@ def generer_excel(mois_selectionne, annee_selectionnee, contrats, heures_par_jou
             for col_idx, value in enumerate(row_data, start=1):
                 ws.cell(row=row_idx, column=col_idx, value=value)
         
-        # Set column width for date columns (70 pixels ≈ 9.14 Excel units)
+        # Set column width for date columns
         # Skip first 3 columns: Donor, Financing Code, Project
         for col_idx, col_name in enumerate(df_repartition.columns[3:], start=4):
             try:
@@ -386,6 +386,15 @@ if uploaded_file:
                                     new_cell.number_format = copy(cell.number_format)
                                     new_cell.protection = copy(cell.protection)
                                     new_cell.alignment = copy(cell.alignment)
+                        
+                        # Copy column dimensions from template
+                        for col_letter, col_dim in temp_ws.column_dimensions.items():
+                            new_ws.column_dimensions[col_letter].width = col_dim.width
+                        
+                        # Set print settings for the output sheet
+                        new_ws.page_setup.orientation = new_ws.ORIENTATION_LANDSCAPE
+                        new_ws.page_setup.fitToWidth = 1
+                        new_ws.page_setup.fitToHeight = False
                         
                         sheet_written = True
                     except Exception as e:
