@@ -333,6 +333,35 @@ if uploaded_file:
         "✅ Generar todos los horarios del archivo"
     ):
         year_col = "Année" if is_fr else "Year" if is_en else "Año"
+        
+        # Define all required columns based on language
+        month_col = "Mois" if is_fr else "Month" if is_en else "Mes"
+        hours_col = "Heures par jour" if is_fr else "Hours per day" if is_en else "Horas por día"
+        contracts_col = "Contrats" if is_fr else "Contracts" if is_en else "Contratos"
+        
+        required_columns = [year_col, month_col, hours_col, contracts_col]
+        missing_columns = [col for col in required_columns if col not in df_upload.columns]
+        
+        if missing_columns:
+            st.error(
+                f"❌ **Erreur : Colonnes manquantes dans le fichier**\n\n"
+                f"**Colonnes requises :** {', '.join(required_columns)}\n\n"
+                f"**Colonnes manquantes :** {', '.join(missing_columns)}\n\n"
+                f"**Colonnes disponibles :** {', '.join(df_upload.columns)}\n\n"
+                f"💡 **Solution :** Téléchargez le modèle Excel ci-dessus et utilisez-le comme format de référence." if is_fr else
+                f"❌ **Error: Missing columns in file**\n\n"
+                f"**Required columns:** {', '.join(required_columns)}\n\n"
+                f"**Missing columns:** {', '.join(missing_columns)}\n\n"
+                f"**Available columns:** {', '.join(df_upload.columns)}\n\n"
+                f"💡 **Solution:** Download the Excel template above and use it as a reference format." if is_en else
+                f"❌ **Error: Columnas faltantes en el archivo**\n\n"
+                f"**Columnas requeridas:** {', '.join(required_columns)}\n\n"
+                f"**Columnas faltantes:** {', '.join(missing_columns)}\n\n"
+                f"**Columnas disponibles:** {', '.join(df_upload.columns)}\n\n"
+                f"💡 **Solución:** Descargue la plantilla de Excel de arriba y úsela como formato de referencia."
+            )
+            st.stop()
+            
         grouped = df_upload.groupby(year_col)
         download_files = []
 
